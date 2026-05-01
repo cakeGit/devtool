@@ -1,0 +1,106 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 16px;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.4;
+}
+
+h1 {
+  margin: 0 0 8px;
+}
+
+button,
+.button {
+  display: inline-block;
+  border: 1px solid #888;
+  border-radius: 2px;
+  background: #eee;
+  color: #111;
+  padding: 5px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover,
+.button:hover {
+  background: #e0e0e0;
+}
+
+button:disabled {
+  color: #777;
+  cursor: not-allowed;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+.toolbar,
+.panel {
+  margin: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.check {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#zoom-slider {
+  width: 220px;
+  vertical-align: middle;
+}
+
+#editor-canvas {
+  display: block;
+  width: min(100%, 760px);
+  height: auto;
+  border: 1px solid #333;
+  background: white;
+  touch-action: none;
+}
+
+.help,
+#status {
+  max-width: 760px;
+}
+
+#status {
+  min-height: 1.4em;
+}
+
+#print-area {
+  display: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  body {
+    margin: 0;
+  }
+
+  .app {
+    display: none;
+  }
+
+  #print-area {
+    display: block;
+  }
+
+  #print-canvas {
+    display: block;
+    width: 210mm;
+    height: 297mm;
+  }
+}
