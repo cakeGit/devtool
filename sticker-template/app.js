@@ -4,7 +4,8 @@ const SHEET = {
   columns: 4,
   rows: 6,
   labelDiameter: 40,
-  bleedDiameter: 46,
+  bleedAmount: 1.5,
+  maxBleedAmount: 3,
   marginX: 16,
   marginY: 13.5,
   gap: 6,
@@ -23,11 +24,16 @@ const projectInput = document.querySelector("#project-input");
 const selectedLabel = document.querySelector("#selected-label");
 const zoomSlider = document.querySelector("#zoom-slider");
 const zoomLabel = document.querySelector("#zoom-label");
+const bleedSlider = document.querySelector("#bleed-slider");
+const bleedLabel = document.querySelector("#bleed-label");
+const bleedModeSelect = document.querySelector("#bleed-mode-select");
+const applyBleedModeButton = document.querySelector("#apply-bleed-mode-button");
 const statusText = document.querySelector("#status");
 const guidesToggle = document.querySelector("#guides-toggle");
 
 const cells = Array.from({ length: CELL_COUNT }, () => emptyCell());
 const imageCache = new Map();
+const BLEED_MODES = new Set(["none", "edge", "mirror"]);
 
 let selectedIndex = 0;
 let copiedCell = null;
@@ -40,6 +46,7 @@ function emptyCell() {
     offsetX: 0,
     offsetY: 0,
     scale: 1,
+    bleedMode: "none",
   };
 }
 
@@ -49,7 +56,24 @@ function cloneCell(cell) {
     offsetX: cell.offsetX,
     offsetY: cell.offsetY,
     scale: cell.scale,
+    bleedMode: normaliseBleedMode(cell.bleedMode),
   };
+}
+
+function normaliseBleedMode(mode) {
+  return BLEED_MODES.has(mode) ? mode : "none";
+}
+
+function clampBleedAmount(amount) {
+  if (!Number.isFinite(amount)) {
+    return SHEET.bleedAmount;
+  }
+
+  return Math.max(0, Math.min(SHEET.maxBleedAmount, Math.round(amount * 10) / 10));
+}
+
+function bleedDiameter() {
+  return SHEET.labelDiameter + SHEET.bleedAmount * 2;
 }
 
 function cellCenter(index) {
@@ -67,7 +91,7 @@ function findCellAt(point) {
     const center = cellCenter(index);
     const distance = Math.hypot(point.x - center.x, point.y - center.y);
 
-    if (distance <= SHEET.bleedDiameter / 2) {
+    if (distance <= bleedDiameter() / 2) {
       return index;
     }
   }
@@ -105,7 +129,9 @@ function loadImage(src) {
 }
 
 function baseFillScale(image) {
-  return Math.max(SHEET.bleedDiameter / image.naturalWidth, SHEET.bleedDiameter / image.naturalHeight);
+  const diameter = bleedDiameter();
+
+  return Math.max(diameter / image.naturalWidth, diameter / image.naturalHeight);
 }
 
 function fitScale(image) {
@@ -119,6 +145,7 @@ async function setCellImage(index, src) {
     offsetX: 0,
     offsetY: 0,
     scale: baseFillScale(image),
+    bleedMode: "none",
   };
 
   selectCell(index);
@@ -129,6 +156,7 @@ function selectCell(index) {
   selectedIndex = Math.max(0, Math.min(CELL_COUNT - 1, index));
   selectedLabel.textContent = String(selectedIndex + 1);
   updateZoomUi();
+  updateBleedModeUi();
   renderEditor();
 }
 
@@ -154,6 +182,18 @@ function updateZoomUi() {
   zoomLabel.textContent = `${zoom}%`;
 }
 
+function updateBleedAmountUi() {
+  bleedSlider.value = String(SHEET.bleedAmount);
+  bleedLabel.textContent = `${SHEET.bleedAmount.toFixed(1)} mm`;
+}
+
+function updateBleedModeUi() {
+  const cell = cells[selectedIndex];
+  bleedModeSelect.value = normaliseBleedMode(cell.bleedMode);
+  bleedModeSelect.disabled = !cell.src;
+  applyBleedModeButton.disabled = !cell.src;
+}
+
 function canvasPointFromEvent(event) {
   const rect = editorCanvas.getBoundingClientRect();
 
@@ -168,9 +208,113 @@ function drawCircle(context, center, diameter) {
   context.arc(center.x, center.y, diameter / 2, 0, Math.PI * 2);
 }
 
+function imageRectForCell(cell, image, center) {
+  const width = image.naturalWidth * cell.scale;
+  const height = image.naturalHeight * cell.scale;
+
+  return {
+    x: center.x + cell.offsetX - width / 2,
+    y: center.y + cell.offsetY - height / 2,
+    width,
+    height,
+  };
+}
+
+function bleedBounds(center) {
+  const diameter = bleedDiameter();
+
+  return {
+    left: center.x - diameter / 2,
+    top: center.y - diameter / 2,
+    right: center.x + diameter / 2,
+    bottom: center.y + diameter / 2,
+  };
+}
+
+function drawImageSlice(context, image, sx, sy, sw, sh, dx, dy, dw, dh) {
+  if (sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) {
+    return;
+  }
+
+  context.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+}
+
+function drawEdgeBleed(context, image, rect, bounds) {
+  const imageRight = rect.x + rect.width;
+  const imageBottom = rect.y + rect.height;
+  const leftGap = rect.x - bounds.left;
+  const rightGap = bounds.right - imageRight;
+  const topGap = rect.y - bounds.top;
+  const bottomGap = bounds.bottom - imageBottom;
+  const lastX = image.naturalWidth - 1;
+  const lastY = image.naturalHeight - 1;
+
+  drawImageSlice(context, image, 0, 0, 1, image.naturalHeight, bounds.left, rect.y, leftGap, rect.height);
+  drawImageSlice(context, image, lastX, 0, 1, image.naturalHeight, imageRight, rect.y, rightGap, rect.height);
+  drawImageSlice(context, image, 0, 0, image.naturalWidth, 1, rect.x, bounds.top, rect.width, topGap);
+  drawImageSlice(context, image, 0, lastY, image.naturalWidth, 1, rect.x, imageBottom, rect.width, bottomGap);
+
+  drawImageSlice(context, image, 0, 0, 1, 1, bounds.left, bounds.top, leftGap, topGap);
+  drawImageSlice(context, image, lastX, 0, 1, 1, imageRight, bounds.top, rightGap, topGap);
+  drawImageSlice(context, image, 0, lastY, 1, 1, bounds.left, imageBottom, leftGap, bottomGap);
+  drawImageSlice(context, image, lastX, lastY, 1, 1, imageRight, imageBottom, rightGap, bottomGap);
+}
+
+function drawMirrorTile(context, image, rect, tileX, tileY) {
+  const flipX = Math.abs(tileX) % 2 === 1;
+  const flipY = Math.abs(tileY) % 2 === 1;
+  const x = rect.x + tileX * rect.width;
+  const y = rect.y + tileY * rect.height;
+
+  context.save();
+  context.translate(x + (flipX ? rect.width : 0), y + (flipY ? rect.height : 0));
+  context.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+  context.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, 0, 0, rect.width, rect.height);
+  context.restore();
+}
+
+function drawMirrorBleed(context, image, rect, bounds) {
+  if (rect.width <= 0 || rect.height <= 0) {
+    return;
+  }
+
+  const minTileX = Math.floor((bounds.left - rect.x) / rect.width);
+  const maxTileX = Math.ceil((bounds.right - rect.x) / rect.width);
+  const minTileY = Math.floor((bounds.top - rect.y) / rect.height);
+  const maxTileY = Math.ceil((bounds.bottom - rect.y) / rect.height);
+
+  for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
+    for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
+      if (tileX === 0 && tileY === 0) {
+        continue;
+      }
+
+      drawMirrorTile(context, image, rect, tileX, tileY);
+    }
+  }
+}
+
+function drawBleedExtension(context, cell, image, rect, center) {
+  const mode = normaliseBleedMode(cell.bleedMode);
+
+  if (mode === "none") {
+    return;
+  }
+
+  const bounds = bleedBounds(center);
+
+  if (mode === "edge") {
+    drawEdgeBleed(context, image, rect, bounds);
+    return;
+  }
+
+  drawMirrorBleed(context, image, rect, bounds);
+}
+
 function drawSheet(context, options = {}) {
   const includeEditorGuides = options.editor === true;
   const includeCalibrationGuides = options.calibration === true;
+  const diameter = bleedDiameter();
 
   context.save();
   context.clearRect(0, 0, SHEET.pageWidth, SHEET.pageHeight);
@@ -186,16 +330,16 @@ function drawSheet(context, options = {}) {
 
       if (image) {
         context.save();
-        drawCircle(context, center, SHEET.bleedDiameter);
+        drawCircle(context, center, diameter);
         context.clip();
-        const width = image.naturalWidth * cell.scale;
-        const height = image.naturalHeight * cell.scale;
+        const rect = imageRectForCell(cell, image, center);
+        drawBleedExtension(context, cell, image, rect, center);
         context.drawImage(
           image,
-          center.x + cell.offsetX - width / 2,
-          center.y + cell.offsetY - height / 2,
-          width,
-          height
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height
         );
         context.restore();
       }
@@ -206,7 +350,7 @@ function drawSheet(context, options = {}) {
       context.lineWidth = includeEditorGuides ? 0.25 : 0.12;
       context.strokeStyle = includeEditorGuides ? "#888" : "#aaa";
       context.setLineDash([1.5, 1.5]);
-      drawCircle(context, center, SHEET.bleedDiameter);
+      drawCircle(context, center, diameter);
       context.stroke();
 
       context.setLineDash([]);
@@ -220,7 +364,7 @@ function drawSheet(context, options = {}) {
       context.save();
       context.lineWidth = 0.7;
       context.strokeStyle = "#06c";
-      drawCircle(context, center, SHEET.bleedDiameter + 2);
+      drawCircle(context, center, diameter + 2);
       context.stroke();
       context.restore();
     }
@@ -275,13 +419,14 @@ function renderOutputCanvas(canvas, includeCalibrationGuides) {
 
 function projectData() {
   return {
-    version: 1,
+    version: 2,
     sheet: {
       label: "A4 24 round sticker",
       pageWidth: SHEET.pageWidth,
       pageHeight: SHEET.pageHeight,
       labelDiameter: SHEET.labelDiameter,
-      bleedDiameter: SHEET.bleedDiameter,
+      bleedAmount: SHEET.bleedAmount,
+      bleedDiameter: bleedDiameter(),
       columns: SHEET.columns,
       rows: SHEET.rows,
     },
@@ -294,6 +439,18 @@ async function loadProject(data) {
     throw new Error("Project file is not valid.");
   }
 
+  const incomingSheet = data.sheet || {};
+  const incomingBleedAmount = Number(incomingSheet.bleedAmount);
+  const incomingBleedDiameter = Number(incomingSheet.bleedDiameter);
+
+  if (Number.isFinite(incomingBleedAmount)) {
+    SHEET.bleedAmount = clampBleedAmount(incomingBleedAmount);
+  } else if (Number.isFinite(incomingBleedDiameter)) {
+    SHEET.bleedAmount = clampBleedAmount((incomingBleedDiameter - SHEET.labelDiameter) / 2);
+  }
+
+  updateBleedAmountUi();
+
   for (let index = 0; index < CELL_COUNT; index += 1) {
     const incoming = data.cells[index] || emptyCell();
     cells[index] = {
@@ -301,6 +458,7 @@ async function loadProject(data) {
       offsetX: Number.isFinite(incoming.offsetX) ? incoming.offsetX : 0,
       offsetY: Number.isFinite(incoming.offsetY) ? incoming.offsetY : 0,
       scale: Number.isFinite(incoming.scale) && incoming.scale > 0 ? incoming.scale : 1,
+      bleedMode: normaliseBleedMode(incoming.bleedMode),
     };
 
     if (cells[index].src) {
@@ -342,6 +500,7 @@ function setStatus(message) {
 
 function afterChange(message) {
   updateZoomUi();
+  updateBleedModeUi();
   renderEditor();
   saveAutosave();
 
@@ -371,6 +530,7 @@ async function handleImageFiles(files) {
       offsetX: 0,
       offsetY: 0,
       scale: baseFillScale(image),
+      bleedMode: "none",
     };
   }
 
@@ -402,7 +562,7 @@ async function fillSelected() {
   cell.scale = baseFillScale(image);
   cell.offsetX = 0;
   cell.offsetY = 0;
-  afterChange("Selected image filled the 46 mm bleed circle.");
+  afterChange(`Selected image filled the ${bleedDiameter().toFixed(1)} mm bleed circle.`);
 }
 
 async function resetSelected() {
@@ -505,6 +665,45 @@ function updateSelectedScaleFromSlider() {
   afterChange("");
 }
 
+function updateBleedAmountFromSlider() {
+  SHEET.bleedAmount = clampBleedAmount(Number(bleedSlider.value));
+  updateBleedAmountUi();
+  afterChange(`Bleed set to ${SHEET.bleedAmount.toFixed(1)} mm.`);
+}
+
+function updateSelectedBleedMode() {
+  const cell = cells[selectedIndex];
+
+  if (!cell.src) {
+    return;
+  }
+
+  cell.bleedMode = normaliseBleedMode(bleedModeSelect.value);
+  afterChange("Bleed mode updated.");
+}
+
+function applySelectedBleedModeToAll() {
+  const cell = cells[selectedIndex];
+
+  if (!cell.src) {
+    return;
+  }
+
+  const mode = normaliseBleedMode(cell.bleedMode);
+  let changedCount = 0;
+
+  for (const targetCell of cells) {
+    if (!targetCell.src) {
+      continue;
+    }
+
+    targetCell.bleedMode = mode;
+    changedCount += 1;
+  }
+
+  afterChange(`Applied bleed mode to ${changedCount} sticker${changedCount === 1 ? "" : "s"}.`);
+}
+
 editorCanvas.addEventListener("pointerdown", (event) => {
   const point = canvasPointFromEvent(event);
   const index = findCellAt(point);
@@ -595,6 +794,9 @@ projectInput.addEventListener("change", async () => {
 });
 
 zoomSlider.addEventListener("input", updateSelectedScaleFromSlider);
+bleedSlider.addEventListener("input", updateBleedAmountFromSlider);
+bleedModeSelect.addEventListener("change", updateSelectedBleedMode);
+applyBleedModeButton.addEventListener("click", applySelectedBleedModeToAll);
 
 document.querySelector("#fit-button").addEventListener("click", fitSelected);
 document.querySelector("#fill-button").addEventListener("click", fillSelected);
@@ -656,5 +858,7 @@ document.addEventListener("keydown", async (event) => {
 
 window.addEventListener("resize", resizeEditorCanvas);
 
+updateBleedAmountUi();
+updateBleedModeUi();
 resizeEditorCanvas();
 restoreAutosave();

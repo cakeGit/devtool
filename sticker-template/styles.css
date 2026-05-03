@@ -53,7 +53,8 @@ input[type="file"] {
   align-items: center;
 }
 
-#zoom-slider {
+#zoom-slider,
+#bleed-slider {
   width: 220px;
   vertical-align: middle;
 }

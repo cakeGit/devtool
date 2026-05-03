@@ -12,7 +12,7 @@
     <h1>A4 24 round sticker template</h1>
     <p>
       A4 portrait sheet, 24 x 40 mm circles, 16 mm side margins, 13.5 mm top/bottom margins,
-      6 mm gaps. Images export to a 46 mm bleed circle.
+      6 mm gaps. Bleed amount and bleed fill mode are adjustable.
     </p>
 
     <section class="toolbar" aria-label="Image and cell controls">
@@ -41,6 +41,11 @@
         <input id="guides-toggle" type="checkbox">
         Include calibration guides in export/print
       </label>
+      <label>
+        Bleed
+        <input id="bleed-slider" type="range" min="0" max="3" step="0.1" value="1.5">
+        <span id="bleed-label">1.5 mm</span>
+      </label>
     </section>
 
     <section class="panel" aria-label="Selected sticker controls">
@@ -51,6 +56,15 @@
         <input id="zoom-slider" type="range" min="5" max="800" value="100">
         <span id="zoom-label">100%</span>
       </label>
+      <label>
+        Bleed mode
+        <select id="bleed-mode-select">
+          <option value="none">None</option>
+          <option value="edge">Use edge pixels</option>
+          <option value="mirror">Mirror pixels</option>
+        </select>
+      </label>
+      <button id="apply-bleed-mode-button" type="button">Apply mode to all</button>
     </section>
 
     <canvas id="editor-canvas" aria-label="Sticker sheet editor"></canvas>
