@@ -407,8 +407,8 @@ function renderEditor() {
 }
 
 function renderOutputCanvas(canvas, includeCalibrationGuides) {
-  const width = Math.round((SHEET.pageWidth / MM_PER_INCH) * SHEET.exportDpi);
-  const height = Math.round((SHEET.pageHeight / MM_PER_INCH) * SHEET.exportDpi);
+  const width = (SHEET.pageWidth / MM_PER_INCH) * SHEET.exportDpi;
+  const height = (SHEET.pageHeight / MM_PER_INCH) * SHEET.exportDpi;
   const context = canvas.getContext("2d");
 
   canvas.width = width;
@@ -704,6 +704,42 @@ function applySelectedBleedModeToAll() {
   afterChange(`Applied bleed mode to ${changedCount} sticker${changedCount === 1 ? "" : "s"}.`);
 }
 
+async function exportPdf() {
+  renderOutputCanvas(printCanvas, guidesToggle.checked);
+
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  // Force raw pixel dimensions
+  const imgData = printCanvas.toDataURL("image/png");
+
+  // Get canvas pixel size
+  const pxWidth = printCanvas.width;
+  const pxHeight = printCanvas.height;
+
+  // Convert pixels → mm manually (ignore DPI metadata)
+  const mmWidth = 210;
+  const mmHeight = 297;
+
+  pdf.addImage(
+    imgData,
+    "PNG",
+    0,
+    0,
+    mmWidth,
+    mmHeight,
+    undefined,
+    "FAST"
+  );
+
+  pdf.save("stickers.pdf");
+}
+
 editorCanvas.addEventListener("pointerdown", (event) => {
   const point = canvasPointFromEvent(event);
   const index = findCellAt(point);
@@ -807,7 +843,7 @@ document.querySelector("#clear-button").addEventListener("click", clearSelected)
 document.querySelector("#clear-all-button").addEventListener("click", clearAll);
 document.querySelector("#save-project-button").addEventListener("click", saveProject);
 document.querySelector("#export-png-button").addEventListener("click", exportPng);
-document.querySelector("#print-button").addEventListener("click", printSheet);
+document.querySelector("#print-button").addEventListener("click", exportPdf);
 
 document.addEventListener("copy", (event) => {
   if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
