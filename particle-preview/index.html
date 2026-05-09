@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Particle Preview</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <aside class="controls" aria-label="Particle configuration">
+      <header class="topbar">
+        <div>
+          <h1>Particle Preview</h1>
+          <p>Minecraft-style particle effect preview.</p>
+        </div>
+        <a href="../">Tools</a>
+      </header>
+
+      <section class="panel">
+        <h2>Project</h2>
+        <div class="row">
+          <button id="export-project" type="button">Export JSON</button>
+          <label class="button">
+            Import JSON
+            <input id="project-input" type="file" accept="application/json,.json">
+          </label>
+        </div>
+        <div class="row">
+          <button id="load-preset-smoke" type="button">Smoke</button>
+          <button id="load-preset-flame" type="button">Flame</button>
+          <button id="load-preset-crit" type="button">Crit</button>
+          <button id="load-preset-dust" type="button">Dust</button>
+          <button id="load-preset-drip" type="button">Drip</button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Emitters</h2>
+        <div id="emitter-list" class="emitter-list"></div>
+        <div class="row">
+          <button id="add-emitter" type="button">Add</button>
+          <button id="duplicate-emitter" type="button">Duplicate</button>
+          <button id="delete-emitter" type="button">Delete</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Selected Emitter</h2>
+        <label>
+          Name
+          <input id="emitter-name" type="text">
+        </label>
+        <label class="check">
+          <input id="emitter-enabled" type="checkbox">
+          Enabled
+        </label>
+        <label>
+          Sprite sheet
+          <input id="sprite-input" type="file" accept="image/*">
+        </label>
+        <p id="sprite-status" class="asset-status">No sprite sheet selected.</p>
+        <div class="grid">
+          <label>
+            Frames
+            <input id="frame-count" type="number" min="1" max="64" step="1">
+          </label>
+          <label>
+            Frame mode
+            <select id="frame-mode">
+              <option value="age">Age based</option>
+              <option value="random">Random</option>
+              <option value="fixed">Fixed</option>
+            </select>
+          </label>
+          <label>
+            Fixed frame
+            <input id="fixed-frame" type="number" min="0" max="63" step="1">
+          </label>
+          <label class="check">
+            <input id="pixelated" type="checkbox">
+            Pixelated
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Spawn</h2>
+        <div class="grid">
+          <label>
+            Shape
+            <select id="shape">
+              <option value="point">Point</option>
+              <option value="box">Box</option>
+              <option value="sphere">Sphere</option>
+              <option value="disc">Circle/disc</option>
+              <option value="line">Line</option>
+              <option value="cone">Cone</option>
+            </select>
+          </label>
+          <label>
+            Rate / sec
+            <input id="spawn-rate" type="number" min="0" max="2000" step="1">
+          </label>
+          <label>
+            Burst
+            <input id="burst-count" type="number" min="0" max="1000" step="1">
+          </label>
+          <label>
+            Max live
+            <input id="max-particles" type="number" min="1" max="5000" step="1">
+          </label>
+        </div>
+        <div class="grid three">
+          <label>Pos X <input id="pos-x" type="number" step="0.1"></label>
+          <label>Pos Y <input id="pos-y" type="number" step="0.1"></label>
+          <label>Pos Z <input id="pos-z" type="number" step="0.1"></label>
+          <label>Size X <input id="size-x" type="number" min="0" step="0.1"></label>
+          <label>Size Y <input id="size-y" type="number" min="0" step="0.1"></label>
+          <label>Size Z <input id="size-z" type="number" min="0" step="0.1"></label>
+          <label>Dir X <input id="dir-x" type="number" step="0.1"></label>
+          <label>Dir Y <input id="dir-y" type="number" step="0.1"></label>
+          <label>Dir Z <input id="dir-z" type="number" step="0.1"></label>
+        </div>
+        <div class="grid">
+          <label>Speed <input id="speed" type="number" min="0" step="0.01"></label>
+          <label>Speed +/- <input id="speed-variance" type="number" min="0" step="0.01"></label>
+          <label>Spread deg <input id="spread" type="number" min="0" max="180" step="1"></label>
+          <label>Cone deg <input id="cone-angle" type="number" min="0" max="180" step="1"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Behavior</h2>
+        <div class="grid">
+          <label>
+            Minecraft behavior
+            <select id="minecraft-behavior">
+              <option value="generic">Generic</option>
+              <option value="crit">Crit</option>
+              <option value="flame">Flame</option>
+              <option value="smoke">Smoke</option>
+              <option value="dust">Dust</option>
+              <option value="fallingWater">Falling water</option>
+            </select>
+          </label>
+          <label>Lifetime ticks <input id="lifetime" type="number" min="1" max="10000" step="1"></label>
+          <label>Lifetime +/- <input id="lifetime-variance" type="number" min="0" max="10000" step="1"></label>
+          <label>Gravity <input id="gravity" type="number" step="0.01"></label>
+          <label>Friction <input id="friction" type="number" min="0" max="1.5" step="0.01"></label>
+          <label>Size <input id="particle-size" type="number" min="0.01" step="0.01"></label>
+          <label>End size <input id="end-size" type="number" min="0.01" step="0.01"></label>
+          <label>Roll <input id="roll" type="number" step="1"></label>
+          <label>Roll speed <input id="roll-speed" type="number" step="1"></label>
+        </div>
+        <div class="grid">
+          <label>Color <input id="color" type="color"></label>
+          <label>Alpha <input id="alpha" type="number" min="0" max="1" step="0.05"></label>
+          <label>Fade color <input id="fade-color" type="color"></label>
+          <label class="check"><input id="fade-enabled" type="checkbox"> Half-life fade</label>
+          <label class="check"><input id="physics" type="checkbox"> Floor collision</label>
+          <label class="check"><input id="speed-up-blocked" type="checkbox"> Speed up when Y blocked</label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Display</h2>
+        <div class="grid">
+          <label>
+            Render mode
+            <select id="render-mode">
+              <option value="translucent">Translucent</option>
+              <option value="opaque">Opaque</option>
+              <option value="lit">Lit / fullbright</option>
+            </select>
+          </label>
+          <label>
+            Billboard
+            <select id="billboard-mode">
+              <option value="xyz">Full camera-facing</option>
+              <option value="y">Y-axis only</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Scene</h2>
+        <div class="grid">
+          <label>
+            Background
+            <select id="background-mode">
+              <option value="sky-grass">Sky + grass</option>
+              <option value="dark-concrete">Dark + concrete</option>
+              <option value="color">Pure color</option>
+              <option value="checker">Checkerboard</option>
+              <option value="custom">Custom image</option>
+            </select>
+          </label>
+          <label>Color <input id="background-color" type="color"></label>
+          <label class="check"><input id="floor-enabled" type="checkbox"> Floor</label>
+          <label>Floor Y <input id="floor-y" type="number" step="0.1"></label>
+        </div>
+        <label>
+          Custom background / skybox image
+          <input id="background-input" type="file" accept="image/*">
+        </label>
+        <p id="background-status" class="asset-status">No custom background selected.</p>
+        <label>
+          Custom ground texture
+          <input id="ground-input" type="file" accept="image/*">
+        </label>
+        <p id="ground-status" class="asset-status">No custom ground texture selected.</p>
+      </section>
+    </aside>
+
+    <section class="preview" aria-label="Particle preview">
+      <div class="preview-toolbar">
+        <button id="play-pause" type="button">Pause</button>
+        <button id="step-frame" type="button">Step</button>
+        <button id="reset-preview" type="button">Reset</button>
+        <label>
+          Slow
+          <input id="time-scale" type="range" min="0.05" max="1" step="0.05" value="1">
+          <span id="time-scale-label">1.00x</span>
+        </label>
+        <label>
+          Seed
+          <input id="seed" type="number" min="1" step="1">
+        </label>
+        <span id="particle-count">0 particles</span>
+      </div>
+      <div id="viewport" class="viewport"></div>
+    </section>
+  </main>
+</body>
+</html>
