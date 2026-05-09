@@ -109,9 +109,9 @@ function makeInitialState() {
       timeScale: 1,
     },
     scene: {
-      backgroundMode: "sky-grass",
-      backgroundColor: "#7fb8ff",
-      floorEnabled: true,
+      backgroundMode: "color",
+      backgroundColor: "#ffffff",
+      floorEnabled: false,
       floorY: 0,
       backgroundImage: emptyAsset(),
       groundTexture: emptyAsset(),
@@ -746,7 +746,11 @@ function tickParticles(dtTicks) {
     }
 
     if (particle.frameMode === "age") {
-      const frameIndex = clamp(Math.floor(particle.age * (particle.frames.length - 1) / particle.lifetime), 0, particle.frames.length - 1);
+      // FIX: ensure all frames are reachable before particle death
+      const frameIndex = Math.min(
+        Math.floor((particle.age / particle.lifetime) * particle.frames.length),
+        particle.frames.length - 1
+      );
       particle.material.map = particle.frames[frameIndex] || defaultFrames[0];
     }
 
@@ -843,6 +847,8 @@ async function rebuildScene() {
 
   if (state.scene.floorEnabled) {
     let floorTexture;
+    let useGrassTint = false;
+
     if (state.scene.groundTexture.dataUrl || state.scene.groundTexture.runtimeDataUrl) {
       floorTexture = await loadTexture(state.scene.groundTexture.dataUrl || state.scene.groundTexture.runtimeDataUrl, true);
       floorTexture.wrapS = THREE.RepeatWrapping;
@@ -858,12 +864,15 @@ async function rebuildScene() {
       floorTexture.wrapS = THREE.RepeatWrapping;
       floorTexture.wrapT = THREE.RepeatWrapping;
       floorTexture.repeat.set(24, 24);
+      useGrassTint = true;
     }
 
-    floorMesh = new THREE.Mesh(
-      floorGeometry,
-      new THREE.MeshBasicMaterial({ map: floorTexture, side: THREE.DoubleSide })
-    );
+    const floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture, side: THREE.DoubleSide });
+    if (useGrassTint) {
+      floorMaterial.color.set("#8baa4a"); // green tint only for original grass
+    }
+
+    floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.position.y = state.scene.floorY;
     environmentRoot.add(floorMesh);
